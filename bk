@@ -1,0 +1,86 @@
+#!/bin/sh
+
+# TODO: Check if prerequisites are installed (xdg-open, xclip)
+# TODO: Make the bookmark file a envvar?
+
+bk_file="$HOME/.local/bookmarks"
+
+# --- UTILITIES ---
+
+msg_handle() {
+    echo "$2" > /dev/stderr
+    notify-send "bk $1" "$2"
+}
+warn_handle()  { msg_handle warn  "$1"; }
+error_handle() { msg_handle error "$2"; exit "$1"; }
+
+openable() {
+    _scheme="$(echo "$1" | sed 's/^\(.*\):\/\/.*/\1/')"
+
+    [ "$(xdg-mime query default x-scheme-handler/"$_scheme")" ] \
+        && return 0 \
+        || return 1
+}
+
+# --- ACTIONS ---
+
+open() {
+    _url=$(dmenu -l 10 -i -p "Open bookmark:" < "$HOME/.local/bookmarks") || {
+        # Action has been cancelled
+        warn_handle "Opening canceled."
+        exit 0
+    }
+    
+    _url=$(echo "$_url" | cut -d" " -f1)
+
+    echo $_url
+
+    if openable "$_url"; then
+        xdg-open "$_url";
+    else
+        error_handle 1 "Scheme cannot be open."
+    fi
+}
+
+add() {
+    # TODO: Implement wayland
+    _url="$(xclip -selection clipboard -o)" || \
+        error_handle 1 "Couldn't get clipboard's contents."
+
+    echo "$_url" | grep "://" || \
+        error_handle 4 "'$_url' is not a URL."
+
+    grep "$_url" "$bk_file" && \
+        error_handle 3 "'$_url' already saved."
+
+    openable "$_url" || warn_handle "URL can't be opened by xdg."
+
+    _tags=$(printf "" | dmenu -p "Adding '$_url':") && echo "$_url $_tags" >> "$bk_file"
+}
+
+usage() {
+cat << _HELP
+    bk -- manages and opens bookmarks via dmenu
+
+Synopsis
+
+    bk [ help | add ]
+_HELP
+}
+
+# --- DEPENDENCY CHECKING ---
+
+[ "$DISPLAY" ] || \
+    error_handle 1 "bk only works under Xorg for now."
+
+for _bin in xdg-open xclip dmenu; do
+    command -v "$_bin" > /dev/null || error_handle 2 "bk requires '$_bin'."
+done;
+
+# --- MAIN ---
+
+case "$1" in
+    ("")     open  ;;
+    ("add")  add   ;;
+    ("help") usage ;;
+esac
