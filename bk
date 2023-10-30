@@ -1,7 +1,8 @@
 #!/bin/sh
 
-# TODO: Check if prerequisites are installed (xdg-open, xclip)
 # TODO: Make the bookmark file a envvar?
+# TODO: Bookmark deletion and overwriting
+# TODO: Wayland support when adding
 
 bk_file="$HOME/.local/bookmarks"
 
@@ -27,23 +28,19 @@ openable() {
 open() {
     _url=$(dmenu -l 10 -i -p "Open bookmark:" < "$HOME/.local/bookmarks") || {
         # Action has been cancelled
-        warn_handle "Opening canceled."
         exit 0
     }
     
     _url=$(echo "$_url" | cut -d" " -f1)
 
-    echo $_url
-
     if openable "$_url"; then
-        xdg-open "$_url";
+        xdg-open "$_url"
     else
         error_handle 1 "Scheme cannot be open."
     fi
 }
 
 add() {
-    # TODO: Implement wayland
     _url="$(xclip -selection clipboard -o)" || \
         error_handle 1 "Couldn't get clipboard's contents."
 
