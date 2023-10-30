@@ -30,7 +30,7 @@ openable() {
 # --- ACTIONS ---
 
 open() {
-    _url=$(dmenu -l 10 -i -p "Open bookmark:" < "$HOME/.local/bookmarks") || {
+    _url=$(grep -ve '^#' -e '^$' "$bk_file" | dmenu -l 10 -i -p "Open bookmark:") || {
         # Action has been cancelled
         exit 0
     }
