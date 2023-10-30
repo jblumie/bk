@@ -2,15 +2,16 @@
 
 # TODO: Make the bookmark file a envvar?
 # TODO: Bookmark deletion and overwriting
-# TODO: Wayland support when adding
+# TODO: Now it only works with wayland, fix that :P
 
 bk_file="$HOME/.local/bookmarks"
+command_name="$(basename "$0")"
 
 # --- UTILITIES ---
 
 msg_handle() {
     echo "$2" > /dev/stderr
-    notify-send "bk $1" "$2"
+    notify-send "$command_name $1" "$2"
 }
 warn_handle()  { msg_handle warn  "$1"; }
 error_handle() { msg_handle error "$2"; exit "$1"; }
@@ -29,13 +30,19 @@ openable() {
 
 # --- ACTIONS ---
 
-open() {
+# Ask the user graphically and echo the selected URL
+choose() {
     _url=$(grep -ve '^#' -e '^$' "$bk_file" | dmenu -l 10 -i -p "Open bookmark:") || {
+        # FIXME: Cancelling isn't being properly handled atm
         # Action has been cancelled
         exit 0
     }
     
-    _url=$(echo "$_url" | cut -d" " -f1)
+    echo -n "$_url" | cut -nd" " -f1
+}
+
+open() {
+    _url=$(choose)
 
     if openable "$_url"; then
         xdg-open "$_url"
@@ -44,8 +51,10 @@ open() {
     fi
 }
 
+copy() { choose | wl-copy; }
+
 add() {
-    _url="$(xclip -selection clipboard -o)" || \
+    _url="$(wl-paste)" || \
         error_handle 1 "Couldn't get clipboard's contents."
 
     echo "$_url" | grep "://" || \
@@ -61,11 +70,11 @@ add() {
 
 usage() {
 cat << _HELP
-    bk -- manages and opens bookmarks via dmenu
+    $command_name -- manages and opens bookmarks via dmenu
 
 Synopsis
 
-    bk [ help | add ]
+    $command_name [ help | add ]
 _HELP
 }
 
@@ -73,20 +82,33 @@ edit() {
     ${EDITOR:-vim} $bk_file
 }
 
+can_i_use() {
+    command -v "$1" > /dev/null
+}
+
 # --- DEPENDENCY CHECKING ---
 
 [ "$DISPLAY" ] || \
     error_handle 1 "bk only works under Xorg for now."
 
-for _bin in xdg-open xclip dmenu; do
-    command -v "$_bin" > /dev/null || error_handle 2 "bk requires '$_bin'."
-done;
+can_i_use "xdg-open" || error_handle 2 "$command_name requires 'xdg-open'."
+can_i_use "dmenu"    || error_handle 2 "$command_name requires 'dmenu'."
+
+[ "$XDG_SESSION_TYPE" == "wayland" ] && {
+    can_i_use "wl-copy" || error_handle 2 "$command_name requires 'wl-copy' for wayland."
+} || {
+    can_i_use "xclip" || error_handle 2 "$command_name 'xclip' for X11."
+}
 
 # --- MAIN ---
 
+[ ! -f "$bk_file" ] && touch "$bk_file"
+
 case "$1" in
     ("")     open  ;;
+    ("open") open  ;;
     ("add")  add   ;;
     ("edit") edit  ;;
+    ("copy") copy  ;;
     ("help") usage ;;
 esac
