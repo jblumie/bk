@@ -65,6 +65,10 @@ Synopsis
 _HELP
 }
 
+edit() {
+    ${EDITOR:-vim} $bk_file
+}
+
 # --- DEPENDENCY CHECKING ---
 
 [ "$DISPLAY" ] || \
@@ -79,5 +83,6 @@ done;
 case "$1" in
     ("")     open  ;;
     ("add")  add   ;;
+    ("edit") edit  ;;
     ("help") usage ;;
 esac
