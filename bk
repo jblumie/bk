@@ -15,10 +15,14 @@ msg_handle() {
 warn_handle()  { msg_handle warn  "$1"; }
 error_handle() { msg_handle error "$2"; exit "$1"; }
 
-openable() {
-    _scheme="$(echo "$1" | sed 's/^\(.*\):\/\/.*/\1/')"
+# extract the protocol from the URL "https://dendycat" -> "https"
+protocol() { echo "$1" | sed 's/^\(.*\):\/\/.*/\1/'; }
 
-    [ "$(xdg-mime query default x-scheme-handler/"$_scheme")" ] \
+openable() {
+    _mime="x-scheme-handler/$(protocol "$1")"
+
+    # Use xdg-mime to test if the specified protocol has a program attacked to it
+    [ "$(xdg-mime query default "$_mime")" ] \
         && return 0 \
         || return 1
 }
